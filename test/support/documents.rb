@@ -25,4 +25,22 @@ module Documents
   def read(xml, **options)
     GpxKit::Reader.new(StringIO.new(xml), **options).each_message { |_message| nil }
   end
+
+  def messages(xml, **options)
+    GpxKit::Reader.new(StringIO.new(xml), **options).each_message.to_a
+  end
+
+  # The first message with that name.
+  def message(xml, name)
+    messages(xml).find { |message| message.name == name }
+  end
+
+  def fixture(name)
+    File.expand_path("../fixtures/#{name}", __dir__)
+  end
+
+  # A document with one track point holding the given children.
+  def track_point(children, attributes: %(lat="1.5" lon="2.5"), **options)
+    gpx(%(<trk><trkseg><trkpt #{attributes}>#{children}</trkpt></trkseg></trk>), **options)
+  end
 end

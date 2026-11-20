@@ -13,8 +13,9 @@ module GpxKit
   # limits: a GpxKit::Limits, or a Hash of its keywords. Limits::DEFAULT
   # unless given; Limits.none switches them off.
   #
-  # Milestone M1: each_message reads the whole document safely and checks
-  # that it is GPX 1.1 or 1.0, but yields no messages yet. Messages arrive in M2.
+  # Each message is yielded when its element closes, so a segment's points
+  # come before the segment and a track's segments before the track; the
+  # last message is :document. See Message and SPECIFICATION.md 6.2.
   class Reader
     attr_reader :source_label, :limits
 
@@ -46,8 +47,10 @@ module GpxKit
 
       io, owned = open_io
       begin
+        builder = MessageBuilder.new(&block)
         XML::Parser.new(io, limits: @limits, source_label: @source_label).each_event do |type, element|
           check_root(element) if type == :start && element.depth == 1
+          builder.handle(type, element)
         end
       ensure
         @closed_by_reader = true if @close_io && @io.equal?(io)

@@ -30,7 +30,7 @@ class ReaderTest < Minitest::Test
     enumerator = GpxKit::Reader.new(StringIO.new(Documents.gpx)).each_message
 
     assert_kind_of Enumerator, enumerator
-    assert_equal [], enumerator.to_a
+    assert_equal %i[metadata document], enumerator.map(&:name)
   end
 
   def test_skips_whitespace_before_the_xml_declaration

@@ -27,7 +27,7 @@ The library must not create, modify, rewrite or repair GPX files.
 - Stream: memory use must not grow with the number of points unless the caller keeps them.
 - Treat every file as untrusted input: no network access, no external entities, no DTD-defined entities, and enforced limits on size, depth, element count and time.
 - Keep the text exactly as it appears in the file next to every typed value.
-- Never fill in, estimate, smooth or derive measurements the file does not contain. In particular, never compute distance, speed or durations from positions and timestamps; that belongs to the application, labelled as derived.
+- Never fill in, estimate, smooth or derive measurements the file does not contain. In particular, never compute distance, speed or durations from positions and timestamps; that belongs to the application, labelled as derived. A distance the file states (GPXDATA `distance`) is reported as stated.
 - Raise useful, explicit exceptions with line and column numbers.
 - One runtime dependency: Nokogiri 1.17 or later, used through its SAX interface.
 
@@ -94,33 +94,39 @@ Same contract as `FitKit::Reader` and `TcxKit::Reader`:
 
 ### 6.2 Messages
 
-A message is emitted when its element closes, so it carries everything inside it: a segment's points arrive before the segment, a track's segments before the track.
+A message is emitted when its element closes, so it carries everything inside it: a segment's points arrive before the segment, a track's segments before the track. Elements in the document's GPX namespace become messages only where the schema puts them:
 
-| Message name | Element | Fields include |
+| Message name | Element (where) | Fields include |
 |---|---|---|
-| `:metadata` | `metadata` (1.1) | `name`, `desc`, `author_name`, `link_href`, `time`, `keywords`, bounds attributes |
-| `:waypoint` | `wpt` | every `wptType` field (below) |
-| `:route_point` | `rtept` | every `wptType` field |
-| `:route` | `rte` | `name`, `cmt`, `desc`, `src`, `link_href`, `number`, `type` |
-| `:track_point` | `trkpt` | every `wptType` field, plus known extensions |
-| `:track_segment` | `trkseg` | none of its own |
-| `:track` | `trk` | `name`, `cmt`, `desc`, `src`, `link_href`, `number`, `type` |
-| `:document` | `gpx` | `version`, `creator`; in GPX 1.0 also the top-level `name`, `desc`, `author`, `email`, `url`, `time`, `keywords`, `bounds` |
+| `:metadata` | `metadata` (1.1, in `gpx`) | `name`, `desc`, `author_name`, `author_email_id`, `author_email_domain`, `author_link_href`, `copyright_author`, `copyright_year`, `link_href`, `link_text`, `link_type`, `time`, `keywords`, `bounds_minlat` ... |
+| `:waypoint` | `wpt` (in `gpx`) | the point fields below |
+| `:route_point` | `rtept` (in `rte`) | the point fields below |
+| `:route` | `rte` (in `gpx`) | `name`, `cmt`, `desc`, `src`, `link_href`, `number`, `type` (1.1), `url`, `urlname` (1.0) |
+| `:track_point` | `trkpt` (in `trkseg`) | the point fields below, and in 1.0 `course` and `speed` |
+| `:track_segment` | `trkseg` (in `trk`) | none of its own |
+| `:track` | `trk` (in `gpx`) | as `:route` |
+| `:document` | `gpx` | `version`, `creator`; in 1.0 also the top-level `name`, `desc`, `author`, `email`, `url`, `urlname`, `time`, `keywords`, `bounds_*`; anything else directly in `gpx`, such as its `extensions`; always the last message |
 
-`wptType` fields: `lat`, `lon` (attributes), `ele`, `time`, `magvar`, `geoidheight`, `name`, `cmt`, `desc`, `src`, `link_href`, `link_text`, `link_type`, `sym`, `type`, `fix`, `sat`, `hdop`, `vdop`, `pdop`, `ageofdgpsdata`, `dgpsid`, and in GPX 1.0 also `course`, `speed`, `url`, `urlname`.
+Point fields (`wptType`): `lat`, `lon`, `ele`, `time`, `magvar`, `geoidheight`, `name`, `cmt`, `desc`, `src`, `link_href`, `link_text`, `link_type` (1.1), `url`, `urlname` (1.0), `sym`, `type`, `fix`, `sat`, `hdop`, `vdop`, `pdop`, `ageofdgpsdata`, `dgpsid`, plus the known extensions in 6.3.
 
-Field names are the element's local name in snake_case, exactly as GPX names them (`ele`, not `elevation`; `hr`, not `heart_rate`). Nested elements join their names (`link/@href` becomes `link_href`); wrappers such as `extensions` and `TrackPointExtension` are dropped from the name but kept in the path. The Activity view (6.4) gives the friendlier names.
+Every leaf element and every attribute inside a message, outside the messages nested in it, is one of its fields. An element with only attributes (`<bounds .../>`) gives only its attribute fields, and an empty `extensions` is not a field.
+
+Field names join the snake_case names of every element on the path, attributes included, and leave out the wrappers `extensions`, `Extensions` and `TrackPointExtension`: `link/@href` is `link_href`, `author/email/@id` is `author_email_id`, `extensions/TrackPointExtension/hr` is `hr`, `extensions/PowerInWatts` is `power_in_watts`. The path keeps every element, with local names only, since prefixes are chosen by each file. When names repeat (`hr` from TrackPointExtension and from GPXDATA), `fields_named` returns all of them, and the path or `namespace` tells them apart.
+
+`context` places a message: its own index and its ancestors'. `metadata`, `waypoint`, `route` and `track` count across the document; `route_point` counts within its route, `track_segment` within its track and `track_point` within its segment.
 
 ```ruby
 message.name                # :track_point
+message.element_name        # "trkpt"
 message.context             # { track: 0, track_segment: 1, track_point: 812 }
-message.line
+message.line, message.column
 message.fields              # Array of Field, in document order (names can repeat)
 message[:ele]               # typed value of the first field with that name
-message["extensions/gpxtpx:TrackPointExtension/gpxtpx:hr"] # lookup by path
+message["extensions/TrackPointExtension/hr"] # lookup by path
 message.field(:hr)
-message.fields_named(:link_href)
-message.attributes
+message.fields_named(:hr)
+message.attributes          # fields for the message element's own attributes
+message.timestamp           # the time field
 message.to_h
 ```
 
@@ -130,33 +136,37 @@ message.to_h
 field.name           # :hr
 field.path           # "extensions/TrackPointExtension/hr"
 field.namespace      # the TrackPointExtension v2 namespace URI
-field.raw_value      # "142", exactly as written (whitespace collapsed per its XSD type)
+field.text           # " 142 ", exactly as written
+field.raw_value      # "142": the text after the type's whitespace rule
 field.value          # 142, typed; nil when invalid
-field.type           # :decimal, :date_time, :non_negative_integer, :string, ...
+field.type           # :decimal, :latitude, :date_time, :fix, :beats_per_minute, :string, :unknown, ...
 field.known?
 field.valid?
-field.invalid_reason # nil, :not_a_number, :out_of_range, :no_utc_offset, :not_in_enumeration, ...
+field.invalid_reason # nil, :empty, :not_a_number, :not_finite, :not_an_integer, :out_of_range,
+                     # :not_a_date_time, :no_utc_offset, :not_in_enumeration
 field.line
 ```
 
-Typing:
+Types come from tables written from the schemas of the document's version, keyed by path and namespace. In GPX 1.1 extensions are typed inside `extensions`; in GPX 1.0, which has no `extensions` element, directly inside the point.
 
-- `xsd:decimal` and `xsd:double` → `Float`. Callers that need exact decimals use `BigDecimal(field.raw_value)`.
-- Integer types → `Integer`, range-checked.
-- `xsd:dateTime` → `Time` in UTC when the text has `Z` or an offset. Without an offset the value is `nil` and `invalid_reason` is `:no_utc_offset` (decision 1, section 13).
-- `fixType` → `:none`, `:"2d"`, `:"3d"`, `:dgps`, `:pps`.
-- Schema ranges as validity, not errors: `latitudeType` (-90..90), `longitudeType` (-180 to under 180), `degreesType` (0 to under 360), `dgpsStationType` (0..1023), checked against the published schema.
-- Unknown elements: `known?` false, `type` `:string`, `value` is the text.
+- Whitespace: `xsd:string`, and `fixType` (an enumeration based on `xsd:string`), keep the text as written; every other type collapses it.
+- `xsd:decimal` → `Float`, with no exponent, `INF` or `NaN` (`:not_a_number`). Extension values typed `xsd:double` allow exponents. Callers that need exact decimals use `BigDecimal(field.raw_value)`.
+- Integer types → `Integer`, range-checked: `nonNegativeInteger` (`sat`, `number`), `dgpsStationType` (0 to 1023).
+- `xsd:dateTime` → `Time` in UTC when the text has `Z` or an offset; without one, `nil` and `:no_utc_offset` (decision 1). Same rules as tcxkit.
+- `fixType` → `:none`, `:"2d"`, `:"3d"`, `:dgps`, `:pps`; matching is exact.
+- `xsd:anyURI` → the collapsed `String`.
+- Ranges are validity, not errors. GPX 1.1: `latitudeType` (-90 to 90), `longitudeType` (-180 up to, not including, 180), `degreesType` (0 up to, not including, 360). GPX 1.0 allows 180 and 360 themselves.
+- Unknown elements and attributes: `known?` false, `type` `:unknown`, `value` is the text as written. That includes GPX elements of the other version (`course` in a 1.1 track point) and elements in the other version's namespace.
 
-Known extensions, decoded with types:
+Known extensions:
 
-| Namespace | Elements |
+| Namespace | Elements and types |
 |---|---|
-| TrackPointExtension v1 | `atemp`, `wtemp`, `depth`, `hr`, `cad` |
-| TrackPointExtension v2 | v1's, plus `speed`, `course`, `bearing` |
-| PowerExtension v1 | `PowerInWatts` |
-| Cluetrust GPXDATA 1.0 | `hr`, `cadence`, `temp` |
-| none / GPX namespace | `power` inside `extensions`, as written by several exporters |
+| TrackPointExtension v1 | `atemp`, `wtemp` (°C, double), `depth` (m, double), `hr` (1 to 255), `cad` (0 to 254) |
+| TrackPointExtension v2 | v1's, plus `speed` (m/s, double), `course`, `bearing` (decimal, 0 to 360) |
+| PowerExtension v1 | `PowerInWatts` (unsigned short) |
+| Cluetrust GPXDATA 1.0 | `hr`, `cadence` (non-negative integers), `temp` (decimal), `distance` (decimal, with a `sensor` attribute: `wheel` or `pedometer`) |
+| the document's GPX namespace (1.1) | `power` inside `extensions`, as several exporters write it; read as a decimal |
 
 ### 6.4 Activity view
 
@@ -178,7 +188,7 @@ activity.creator    # gpx@creator
 activity.sport            # first track's <type> text, as written; nil if absent
 activity.start_time       # first track's first valid point time
 activity.end_time         # last track's last valid point time
-activity.total_distance   # nil: GPX does not state it
+activity.total_distance   # nil: GPX states no totals
 activity.total_timer_time # nil
 
 session = activity.session
@@ -198,7 +208,7 @@ record.power           # PowerInWatts or power
 record.temperature     # atemp or temp, °C
 record.speed           # TrackPointExtension v2 speed, or GPX 1.0 speed, m/s
 record.course          # degrees
-record.distance        # nil: GPX does not state it
+record.distance        # GPXDATA distance, m, as stated; nil without it
 record.raw_message
 ```
 

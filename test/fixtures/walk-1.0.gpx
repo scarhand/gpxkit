@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<gpx version="1.0" creator="Example Logger" xmlns="http://www.topografix.com/GPX/1/0"
+     xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
+  <name>Synthetic walk</name>
+  <author>Example Walker</author>
+  <email>walker@example.org</email>
+  <url>https://example.org/walk</url>
+  <time>2026-04-01T06:00:00Z</time>
+  <bounds minlat="1.0" minlon="179.9" maxlat="1.1" maxlon="180"/>
+  <trk>
+    <name>Walk</name>
+    <number>1</number>
+    <trkseg>
+      <trkpt lat="1.05" lon="180">
+        <ele>3.5</ele>
+        <time>2026-04-01T06:00:00Z</time>
+        <course>360</course>
+        <speed>1.4</speed>
+        <gpxtpx:TrackPointExtension><gpxtpx:hr>95</gpxtpx:hr></gpxtpx:TrackPointExtension>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
