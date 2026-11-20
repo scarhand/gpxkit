@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="Example Exporter"
+     xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v2"
+     xmlns:tpx1="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
+     xmlns:pwr="http://www.garmin.com/xmlschemas/PowerExtension/v1"
+     xmlns:gpxdata="http://www.cluetrust.com/XML/GPXDATA/1/0"
+     xmlns:x="urn:example:unknown"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>Synthetic ride</name>
+    <author><name>Example Rider</name><email id="rider" domain="example.org"/><link href="https://example.org/rider"><text>Profile</text></link></author>
+    <copyright author="Example Rider"><year>2026</year></copyright>
+    <link href="https://example.org/ride/1"><text>Ride</text><type>text/html</type></link>
+    <time>2026-03-14T09:00:00Z</time>
+    <bounds minlat="12.3" minlon="-45.7" maxlat="12.4" maxlon="-45.6"/>
+  </metadata>
+  <wpt lat="12.35" lon="-45.65"><ele>15</ele><name>Café</name><sym>Flag</sym></wpt>
+  <rte>
+    <name>Planned loop</name>
+    <rtept lat="12.30" lon="-45.70"><name>Start</name></rtept>
+    <rtept lat="12.40" lon="-45.60"><name>Turn</name></rtept>
+  </rte>
+  <trk>
+    <name>Morning ride</name>
+    <type>cycling</type>
+    <trkseg>
+      <trkpt lat="12.3456789" lon="-45.6789012">
+        <ele>10.4</ele>
+        <time>2026-03-14T09:00:00Z</time>
+        <fix>3d</fix>
+        <sat>9</sat>
+        <hdop>0.9</hdop>
+        <extensions>
+          <gpxtpx:TrackPointExtension><gpxtpx:atemp>18.5</gpxtpx:atemp><gpxtpx:hr>120</gpxtpx:hr><gpxtpx:cad>88</gpxtpx:cad><gpxtpx:speed>7.5</gpxtpx:speed><gpxtpx:course>90.5</gpxtpx:course></gpxtpx:TrackPointExtension>
+          <pwr:PowerInWatts>250</pwr:PowerInWatts>
+          <x:Mystery>42</x:Mystery>
+        </extensions>
+      </trkpt>
+      <trkpt lat="12.3457" lon="-45.6789">
+        <ele>10.6</ele>
+        <time>2026-03-14T09:00:01.500Z</time>
+        <extensions>
+          <tpx1:TrackPointExtension><tpx1:hr>121</tpx1:hr></tpx1:TrackPointExtension>
+          <gpxdata:hr>122</gpxdata:hr>
+          <gpxdata:cadence>87</gpxdata:cadence>
+          <gpxdata:temp>18.0</gpxdata:temp>
+          <gpxdata:distance sensor="wheel">7.6</gpxdata:distance>
+          <power>255</power>
+        </extensions>
+      </trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="12.35" lon="-45.65"><ele>1e3</ele><time>2026-03-14T09:10:00</time><fix> 3d</fix><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>0</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions></trkpt>
+    </trkseg>
+  </trk>
+  <extensions><x:Note>root extension</x:Note></extensions>
+</gpx>
