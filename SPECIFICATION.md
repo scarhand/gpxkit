@@ -1,6 +1,6 @@
 # GpxKit — Project Specification
 
-**Status:** Draft for review
+**Status:** Approved by the maintainer on 2026-11-20
 **Project type:** Read-only Ruby library for GPS Exchange Format (GPX) files
 **Gem name:** `gpxkit` (free on RubyGems on 2026-11-20)
 **Ruby namespace / require path:** `GpxKit` / `require "gpxkit"`
@@ -143,7 +143,7 @@ Typing:
 
 - `xsd:decimal` and `xsd:double` → `Float`. Callers that need exact decimals use `BigDecimal(field.raw_value)`.
 - Integer types → `Integer`, range-checked.
-- `xsd:dateTime` → `Time` in UTC when the text has `Z` or an offset. Without an offset the value is `nil` and `invalid_reason` is `:no_utc_offset` (open question 1).
+- `xsd:dateTime` → `Time` in UTC when the text has `Z` or an offset. Without an offset the value is `nil` and `invalid_reason` is `:no_utc_offset` (decision 1, section 13).
 - `fixType` → `:none`, `:"2d"`, `:"3d"`, `:dgps`, `:pps`.
 - Schema ranges as validity, not errors: `latitudeType` (-90..90), `longitudeType` (-180 to under 180), `degreesType` (0 to under 360), `dgpsStationType` (0..1023), checked against the published schema.
 - Unknown elements: `known?` false, `type` `:string`, `value` is the text.
@@ -224,8 +224,8 @@ Lenient (keep reading, record it on the field or message):
 
 Known real-world quirks:
 
-- A `gpx` root without any namespace. Proposed: read it as the version its `version` attribute names, with `document.namespace_missing?` true (open question 3).
-- Whitespace before the XML declaration. Proposed: skipped, as in tcxkit.
+- A `gpx` root without any namespace. Read it as the version its `version` attribute names, with `document.namespace_missing?` true (decision 3, section 13).
+- Whitespace before the XML declaration. Skipped, as in tcxkit.
 - A UTF-8 byte order mark is accepted as XML allows.
 
 ## 8. Security
@@ -269,8 +269,8 @@ GpxKit::Error                 base; source, line, column
 - **M3 — Activity view:** section 6.4.
 - **M4 — Hardening and release:** quirks from real exporters (reproduced synthetically), a benchmark on a 24-hour track, README examples verified, first release on approval.
 
-## 13. Open questions
+## 13. Decisions (approved 2026-11-20)
 
-1. **Times without a UTC offset.** Proposed: `value` nil, `invalid_reason` `:no_utc_offset`, raw text kept. Same as tcxkit.
-2. **Which source wins for a record value** when two extensions state it. Proposed: TrackPointExtension v2, then v1, then PowerExtension, then GPXDATA, then bare `power`; GPX 1.0 `speed`/`course` before extensions.
-3. **A `gpx` root without a namespace.** Proposed: accept it, as in section 7.
+1. **Times without a UTC offset.** Decided: `value` nil, `invalid_reason` `:no_utc_offset`, raw text kept. Same as tcxkit.
+2. **Which source wins for a record value** when two extensions state it. Decided: TrackPointExtension v2, then v1, then PowerExtension, then GPXDATA, then bare `power`; GPX 1.0 `speed`/`course` before extensions.
+3. **A `gpx` root without a namespace.** Decided: accept it, as in section 7.
