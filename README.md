@@ -2,9 +2,20 @@
 
 A read-only, streaming Ruby parser for GPX 1.1 and GPX 1.0 (`.gpx`) files.
 
-**Status: specification only.** Nothing is parsed yet. The planned API is in [`SPECIFICATION.md`](SPECIFICATION.md); the README will show working examples once milestone M1 lands.
+**Status: milestone M1 of 4.** The reader reads a whole document safely (limits, DTD refusal, truncation detection) and checks it is GPX 1.1 or 1.0, but yields no messages yet; they arrive in M2. The full API is in [`SPECIFICATION.md`](SPECIFICATION.md).
 
-GpxKit is a sister project of [fitkit](https://github.com/scarhand/fitkit) (FIT) and [tcxkit](https://github.com/scarhand/tcxkit) (TCX), and shares their API shape:
+```ruby
+require "gpxkit"
+
+begin
+  GpxKit::Reader.new("ride.gpx", limits: { max_seconds: 30 }).each_message { |message| }
+rescue GpxKit::TruncatedFileError, GpxKit::InvalidFileError, GpxKit::UnsupportedFormatError,
+       GpxKit::UnsafeContentError, GpxKit::LimitExceededError => error
+  warn "#{error.class}: #{error.message}" # includes the line and column
+end
+```
+
+GpxKit is a sister project of [fitkit](https://github.com/scarhand/fitkit) (FIT) and [tcxkit](https://github.com/scarhand/tcxkit) (TCX), and shares their API shape. Planned for M2 and M3:
 
 ```ruby
 require "gpxkit"

@@ -2,3 +2,4 @@
 
 require "minitest/autorun"
 require "gpxkit"
+require_relative "support/documents"

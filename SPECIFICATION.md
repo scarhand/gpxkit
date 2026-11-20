@@ -29,7 +29,7 @@ The library must not create, modify, rewrite or repair GPX files.
 - Keep the text exactly as it appears in the file next to every typed value.
 - Never fill in, estimate, smooth or derive measurements the file does not contain. In particular, never compute distance, speed or durations from positions and timestamps; that belongs to the application, labelled as derived.
 - Raise useful, explicit exceptions with line and column numbers.
-- One runtime dependency: Nokogiri, used through its SAX interface.
+- One runtime dependency: Nokogiri 1.17 or later, used through its SAX interface.
 
 ## 3. Non-goals
 
@@ -86,7 +86,7 @@ end
 
 Same contract as `FitKit::Reader` and `TcxKit::Reader`:
 
-- `Reader.new(source, close_io: false, source_label: nil, limits: Limits::DEFAULT)`. `source` is a path, a `Pathname` or an IO-like object that responds to `read`.
+- `Reader.new(source, close_io: false, source_label: nil, limits: Limits::DEFAULT)`. `source` is a path, a `Pathname` or an IO-like object that responds to `read`. A `Pathname` is read as a path even though it responds to `read`.
 - `each_message` streams, and returns an Enumerator without a block.
 - Seekable sources can be iterated again; a non-seekable IO can be read once, and a second iteration raises `Error`.
 - Caller-owned IO is closed only with `close_io: true`.
@@ -211,8 +211,8 @@ The `Activity` view does not assume the file is an activity: a GPX with only rou
 Strict (raise):
 
 - Not well-formed XML, or a root element other than `gpx`.
-- Any entity reference other than the five predefined XML entities and character references (section 8).
-- Input cut off before the root element closes (`TruncatedFileError`).
+- A DTD internal subset, or any entity reference other than the five predefined XML entities and character references (section 8).
+- Input cut off before the root element closes (`TruncatedFileError`). As in tcxkit, a file counts as cut off when libxml2's error is on the last line with at most part of one token (no `<` or `>`) after it, and the input starts with `<`. Anything else that is not well-formed is `InvalidFileError`.
 - Any limit crossed.
 
 Lenient (keep reading, record it on the field or message):
@@ -233,8 +233,8 @@ Known real-world quirks:
 Identical to tcxkit:
 
 - Never access the network or the filesystem beyond the source.
-- Raise `UnsafeContentError` on the first reference to an entity declared in a DTD.
-- Enforce `Limits` while reading: `max_bytes` (64 MB), `max_elements` (5,000,000), `max_depth` (64), `max_text_bytes` (1 MB), `max_seconds` (none). `nil` switches a limit off; `Limits.none` switches all off.
+- Raise `UnsafeContentError` on a DTD internal subset (`<!DOCTYPE x [ ... ]>`) before the XML parser sees it, and on any reference to a DTD-declared entity. A document type declaration without an internal subset is allowed; its external DTD is never loaded.
+- Enforce `Limits` while reading: `max_bytes` (64 MB), `max_elements` (5,000,000), `max_depth` (64), `max_text_bytes` (1 MB: the text of one element without child elements, one attribute value, or the prolog), `max_seconds` (none, and the caller's block is not counted). `nil` switches a limit off; `Limits.none` switches all off.
 - Never include file content in exception messages beyond element names and positions.
 
 ## 9. Errors
@@ -258,7 +258,7 @@ GpxKit::Error                 base; source, line, column
 ## 11. Compatibility and packaging
 
 - Ruby 3.1+, CI on 3.1, 3.2, 3.3, 3.4 and 4.0.
-- Runtime dependency: `nokogiri ~> 1.16`.
+- Runtime dependency: `nokogiri ~> 1.17` (1.17 added the SAX `reference` callback).
 - Semantic versioning. Publish to RubyGems only after the maintainer approves a release.
 
 ## 12. Milestones
