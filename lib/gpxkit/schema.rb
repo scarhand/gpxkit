@@ -128,7 +128,7 @@ module GpxKit
       "name" => T.string, "desc" => T.string,
       "author/name" => T.string, "author/email/@id" => T.string, "author/email/@domain" => T.string,
       **link("author/link"),
-      "copyright/@author" => T.string, "copyright/year" => T.token(:g_year), "copyright/license" => ANY_URI,
+      "copyright/@author" => T.string, "copyright/year" => T.g_year, "copyright/license" => ANY_URI,
       **link,
       "time" => T.date_time,
       "keywords" => T.string,

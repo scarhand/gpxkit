@@ -143,7 +143,7 @@ field.type           # :decimal, :latitude, :date_time, :fix, :beats_per_minute,
 field.known?
 field.valid?
 field.invalid_reason # nil, :empty, :not_a_number, :not_finite, :not_an_integer, :out_of_range,
-                     # :not_a_date_time, :no_utc_offset, :not_in_enumeration
+                     # :not_a_date_time, :no_utc_offset, :not_in_enumeration, :not_a_year
 field.line
 ```
 
@@ -151,10 +151,11 @@ Types come from tables written from the schemas of the document's version, keyed
 
 - Whitespace: `xsd:string`, and `fixType` (an enumeration based on `xsd:string`), keep the text as written; every other type collapses it.
 - `xsd:decimal` → `Float`, with no exponent, `INF` or `NaN` (`:not_a_number`). Extension values typed `xsd:double` allow exponents. Callers that need exact decimals use `BigDecimal(field.raw_value)`.
-- Integer types → `Integer`, range-checked: `nonNegativeInteger` (`sat`, `number`), `dgpsStationType` (0 to 1023).
+- Integer types → `Integer`, range-checked: `nonNegativeInteger` (`sat`, `number`), `dgpsStationType` (0 to 1023). An optional `+`, and `-` before zero, are accepted, as XSD 1.0 and 1.1 both allow for `nonNegativeInteger` and XSD 1.1 for the unsigned types; `-1` is `:not_an_integer`.
 - `xsd:dateTime` → `Time` in UTC when the text has `Z` or an offset; without one, `nil` and `:no_utc_offset` (decision 1). Same rules as tcxkit.
 - `fixType` → `:none`, `:"2d"`, `:"3d"`, `:dgps`, `:pps`; matching is exact.
 - `xsd:anyURI` → the collapsed `String`.
+- `xsd:gYear` (`copyright/year`) → the year as an `Integer` (`2026`); a time zone, if written, stays in `raw_value`. Anything else, such as `26` or `2026-01`, is `:not_a_year`.
 - Ranges are validity, not errors. GPX 1.1: `latitudeType` (-90 to 90), `longitudeType` (-180 up to, not including, 180), `degreesType` (0 up to, not including, 360). GPX 1.0 allows 180 and 360 themselves.
 - Unknown elements and attributes: `known?` false, `type` `:unknown`, `value` is the text as written. That includes GPX elements of the other version (`course` in a 1.1 track point) and elements in the other version's namespace.
 
