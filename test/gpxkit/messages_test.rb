@@ -77,7 +77,7 @@ class MessagesTest < Minitest::Test
     assert_equal ["Synthetic ride", "Example Rider", "rider", "example.org", "https://example.org/rider", "Profile"],
                  metadata.to_h.values_at(:name, :author_name, :author_email_id, :author_email_domain,
                                          :author_link_href, :author_link_text)
-    assert_equal ["Example Rider", "2026", "https://example.org/ride/1", "text/html"],
+    assert_equal ["Example Rider", 2026, "https://example.org/ride/1", "text/html"],
                  metadata.to_h.values_at(:copyright_author, :copyright_year, :link_href, :link_type)
     assert_equal Time.utc(2026, 3, 14, 9), metadata.timestamp
     assert_equal [12.3, -45.7, 12.4, -45.6], metadata.to_h.values_at(:bounds_minlat, :bounds_minlon, :bounds_maxlat, :bounds_maxlon)
