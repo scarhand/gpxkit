@@ -68,15 +68,25 @@ class LimitsTest < Minitest::Test
   end
 
   def test_max_seconds_excludes_the_callers_block
-    xml = Documents.gpx("<a/>" * 3)
-    rows = 0
-    parser = GpxKit::XML::Parser.new(StringIO.new(xml), limits: GpxKit::Limits.new(max_seconds: 0.05), source_label: "t")
-    parser.each_event do |*|
+    xml = Documents.gpx(%(<wpt lat="1" lon="2"/><wpt lat="1" lon="2"/><wpt lat="1" lon="2"/>))
+    names = []
+    GpxKit::Reader.new(StringIO.new(xml), limits: { max_seconds: 0.05 }).each_message do |message|
       sleep 0.03
-      rows += 1
+      names << message.name
     end
 
-    assert_equal 8, rows # root, three <a/> (start and end), root
+    assert_equal %i[waypoint waypoint waypoint document], names
+  end
+
+  def test_max_seconds_counts_the_message_builder
+    # The clock is checked every 64 elements; time spent handling events
+    # inside the gem (here, a slow event block) counts.
+    xml = Documents.gpx("<a/>" * 200)
+    parser = GpxKit::XML::Parser.new(StringIO.new(xml), limits: GpxKit::Limits.new(max_seconds: 0.05), source_label: "t")
+
+    assert_raises(GpxKit::LimitExceededError) do
+      parser.each_event { |*| sleep 0.001 }
+    end
   end
 
   def test_max_seconds

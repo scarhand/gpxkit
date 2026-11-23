@@ -21,22 +21,47 @@ module GpxKit
     # Indexes counted across the document; the others count within their parent.
     DOCUMENT_COUNTERS = %i[metadata waypoint route track].freeze
 
-    CACHE_SIZE = 4096
+    # What a node in the element stack is: a message element (with its Frame)
+    # or a field element (with its Shape).
+    Node = Struct.new(:kind, :element, :frame, :shape)
 
-    # path: the element's path inside its message ("" for the message
-    # element), key: the same path in Schema terms, nil once a segment is
-    # outside the known namespaces, name: the field name so far.
-    Node = Struct.new(:kind, :element, :frame, :path, :key, :name)
+    # Where an element or attribute sits inside a message: its path, schema
+    # key (nil once a segment is outside the known namespaces), field name
+    # (the joined names so far, as a String, and as the Symbol fields use)
+    # and type. Every point has the same few shapes, so they are made once
+    # per message type and reused; a builder makes at most SHAPE_LIMIT,
+    # because unknown names come from the file.
+    class Shape
+      attr_reader :path, :key, :joined_name, :name, :spec
+
+      def initialize(path:, key:, joined_name:, spec:)
+        @path = path
+        @key = key
+        @joined_name = joined_name
+        @name = joined_name.to_sym
+        @spec = spec
+        @children = {}
+        @attributes = {}
+      end
+
+      def child(namespace, name) = @children[namespace]&.[](name)
+      def attribute(namespace, name) = @attributes[namespace]&.[](name)
+      def add_child(namespace, name, shape) = (@children[namespace] ||= {})[name] = shape
+      def add_attribute(namespace, name, shape) = (@attributes[namespace] ||= {})[name] = shape
+    end
+
+    SHAPE_LIMIT = 10_000
 
     # A message being collected.
     class Frame
-      attr_reader :kind, :element, :context, :fields, :table
+      attr_reader :kind, :element, :context, :fields, :table, :shape
 
-      def initialize(kind, element, context, table)
+      def initialize(kind, element, context, table, shape)
         @kind = kind
         @element = element
         @context = context.freeze
         @table = table
+        @shape = shape
         @fields = []
         @counters = Hash.new(0)
       end
@@ -59,7 +84,8 @@ module GpxKit
       @emit = emit
       @nodes = []
       @counters = Hash.new(0)
-      @joins = {}
+      @roots = {}.compare_by_identity
+      @shapes = 0
     end
 
     def handle(type, element)
@@ -76,8 +102,8 @@ module GpxKit
       if kind
         @nodes << open_message(kind, element, parent.frame)
       else
-        node = Node.new(:field, element, parent.frame, join(parent.path, element.name, "/"),
-                        join_key(parent.key, segment(element)), field_name(parent.name, element.name))
+        frame = parent.frame
+        node = Node.new(:field, element, frame, child_shape(parent.shape, element, frame.table))
         add_attributes(node)
         @nodes << node
       end
@@ -88,8 +114,8 @@ module GpxKit
     def start_document(element)
       @namespace = element.namespace
       @version = NAMESPACES[@namespace] || element.attribute("version")&.value
-      frame = Frame.new(:document, element, {}, Schema.table(@version, :document))
-      node = Node.new(:message, element, frame, "", "", "")
+      frame = new_frame(:document, element, {}, Schema.table(@version, :document))
+      node = Node.new(:message, element, frame, frame.shape)
       add_attributes(node)
       @nodes << node
     end
@@ -105,10 +131,15 @@ module GpxKit
     def open_message(kind, element, parent_frame)
       index = DOCUMENT_COUNTERS.include?(kind) ? next_document_index(kind) : parent_frame.next_index(kind)
       context = parent_frame.context.merge(kind => index)
-      frame = Frame.new(kind, element, context, Schema.table(@version, kind))
-      node = Node.new(:message, element, frame, "", "", "")
+      frame = new_frame(kind, element, context, Schema.table(@version, kind))
+      node = Node.new(:message, element, frame, frame.shape)
       add_attributes(node)
       node
+    end
+
+    def new_frame(kind, element, context, table)
+      root = @roots[table] ||= Shape.new(path: "", key: "", joined_name: "", spec: nil)
+      Frame.new(kind, element, context, table, root)
     end
 
     def next_document_index(kind)
@@ -117,12 +148,39 @@ module GpxKit
       index
     end
 
+    def child_shape(parent, element, table)
+      cached = parent.child(element.namespace, element.name)
+      return cached if cached
+
+      key = join_key(parent.key, segment(element))
+      shape = Shape.new(path: join(parent.path, element.name, "/"), key: key,
+                        joined_name: field_name(parent.joined_name, element.name),
+                        spec: (key && table[key]) || Types::UNKNOWN)
+      parent.add_child(element.namespace, element.name, shape) if remember?
+      shape
+    end
+
+    def attribute_shape(parent, attribute, table)
+      cached = parent.attribute(attribute.namespace, attribute.name)
+      return cached if cached
+
+      key = join_key(parent.key, attribute.namespace.nil? ? "@#{attribute.name}" : nil)
+      shape = Shape.new(path: join(parent.path, "@#{attribute.name}", "/"), key: key,
+                        joined_name: field_name(parent.joined_name, attribute.name),
+                        spec: (key && table[key]) || Types::UNKNOWN)
+      parent.add_attribute(attribute.namespace, attribute.name, shape) if remember?
+      shape
+    end
+
+    def remember?
+      (@shapes += 1) <= SHAPE_LIMIT
+    end
+
     def add_attributes(node)
       node.element.attributes.each do |attribute|
-        add_field(node.frame, path: join(node.path, "@#{attribute.name}", "/"),
-                              key: join_key(node.key, attribute.namespace.nil? ? "@#{attribute.name}" : nil),
-                              name: field_name(node.name, attribute.name), namespace: attribute.namespace,
-                              text: attribute.value, line: node.element.line)
+        shape = attribute_shape(node.shape, attribute, node.frame.table)
+        node.frame.fields << Field.new(name: shape.name, path: shape.path, namespace: attribute.namespace,
+                                       text: attribute.value, spec: shape.spec, line: node.element.line)
       end
     end
 
@@ -132,14 +190,9 @@ module GpxKit
       return if WRAPPERS.include?(element.name) && element.text.strip.empty?
       return if element.text.empty? && !element.attributes.empty?
 
-      add_field(node.frame, path: node.path, key: node.key, name: node.name.to_sym,
-                            namespace: element.namespace, text: element.text, line: element.line)
-    end
-
-    def add_field(frame, path:, key:, name:, namespace:, text:, line:)
-      spec = key && frame.table[key]
-      frame.fields << Field.new(name: name.to_sym, path: path, namespace: namespace, text: text,
-                                spec: spec || Types::UNKNOWN, line: line)
+      shape = node.shape
+      node.frame.fields << Field.new(name: shape.name, path: shape.path, namespace: element.namespace,
+                                     text: element.text, spec: shape.spec, line: element.line)
     end
 
     # The parent's name joined with this element's snake_case name, wrappers
@@ -154,18 +207,8 @@ module GpxKit
       key && segment && join(key, segment, "/")
     end
 
-    # Joined paths and names repeat on every point, so they are cached; the
-    # cache is bounded because unknown names come from the file.
     def join(left, right, separator)
-      return right if left.empty?
-
-      by_right = @joins[[left, separator]] ||= {}
-      cached = by_right[right]
-      return cached if cached
-
-      joined = "#{left}#{separator}#{right}".freeze
-      by_right[right] = joined if @joins.size < CACHE_SIZE && by_right.size < CACHE_SIZE
-      joined
+      left.empty? ? right.dup.freeze : "#{left}#{separator}#{right}".freeze
     end
 
     # The schema key of an element, or nil for a namespace the schema does
@@ -174,7 +217,7 @@ module GpxKit
       return element.name if element.namespace == @namespace
 
       prefix = Schema::PREFIXES[element.namespace]
-      prefix && join(prefix, element.name, ":")
+      prefix && "#{prefix}:#{element.name}"
     end
   end
 end

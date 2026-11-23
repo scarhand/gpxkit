@@ -1,6 +1,6 @@
 # GpxKit — Project Specification
 
-**Status:** Approved by the maintainer on 2026-11-20
+**Status:** Approved by the maintainer on 2026-11-20; all milestones done for 0.1.0 (2026-11-23)
 **Project type:** Read-only Ruby library for GPS Exchange Format (GPX) files
 **Gem name:** `gpxkit` (free on RubyGems on 2026-11-20)
 **Ruby namespace / require path:** `GpxKit` / `require "gpxkit"`
@@ -247,11 +247,15 @@ Lenient (keep reading, record it on the field or message):
 - Elements in an order the schema does not allow, or missing elements: the field is simply absent.
 - A `version` attribute that disagrees with the namespace: the namespace decides; `version` is kept as a field.
 
-Known real-world quirks:
+Known real-world quirks, each reproduced in `test/gpxkit/exporter_quirks_test.rb`:
 
-- A `gpx` root without any namespace. Read it as the version its `version` attribute names, with `document.namespace_missing?` true (decision 3, section 13).
-- Whitespace before the XML declaration. Skipped, as in tcxkit.
-- A UTF-8 byte order mark is accepted as XML allows.
+- A `gpx` root without any namespace. Read it as the version its `version` attribute names; the `:document` message's `namespace` is then `nil` (decision 3, section 13).
+- Whitespace before the XML declaration. Skipped, as in tcxkit. A UTF-8 byte order mark is accepted as XML allows.
+- A namespace prefix used without being declared (`<gpxtpx:hr>` with no `xmlns:gpxtpx`), or bound to an empty namespace: libxml2 reports these and reads on, and so does the reader. The element has no namespace, so its values are kept as untyped fields; the gem does not guess which namespace was meant (decision 4). Any other error still makes the file invalid.
+- UTF-16 documents (with or without a byte order mark) and single-byte encodings named in the XML declaration (`ISO-8859-1`, `windows-1252`) are read; values come out as UTF-8. The DTD check decodes the start of a UTF-16 document, so a DTD is refused there too.
+- Bytes that do not match the declared encoding (Latin-1 bytes in a UTF-8 document) make the file invalid.
+- Carriage returns: XML turns `\r\n` into `\n` in text.
+- Near-miss values stay invalid, with their text kept: `+0000` or a lowercase `z` in a time, a decimal comma in `ele`.
 
 ## 8. Security
 
@@ -288,14 +292,15 @@ GpxKit::Error                 base; source, line, column
 
 ## 12. Milestones
 
-- **M0 — Foundation** (this PR): specification, gem skeleton, CI.
-- **M1 — Safe streaming reader:** XML layer, `Limits`, errors, root and version detection, section 7, security tests.
-- **M2 — Messages and fields:** the message table in 6.2, schema typing for both versions, known extensions, unknown preservation.
-- **M3 — Activity view:** section 6.4.
-- **M4 — Hardening and release:** quirks from real exporters (reproduced synthetically), a benchmark on a 24-hour track, README examples verified, first release on approval.
+- **M0 — Foundation** (done): specification, gem skeleton, CI.
+- **M1 — Safe streaming reader** (done): XML layer, `Limits`, errors, root and version detection, section 7, security tests.
+- **M2 — Messages and fields** (done): the message table in 6.2, schema typing for both versions, known extensions, unknown preservation.
+- **M3 — Activity view** (done): section 6.4.
+- **M4 — Hardening and release** (done; release on approval): quirks from real exporters (reproduced synthetically), a benchmark on a 24-hour track, README examples verified, first release on approval. Also seeded fuzz tests of bytes, markup and values, and reading without Ruby warnings.
 
 ## 13. Decisions (approved 2026-11-20)
 
 1. **Times without a UTC offset.** Decided: `value` nil, `invalid_reason` `:no_utc_offset`, raw text kept. Same as tcxkit.
 2. **Which source wins for a record value** when two extensions state it. Decided: TrackPointExtension v2, then v1, then PowerExtension, then GPXDATA, then bare `power`; GPX 1.0 `speed`/`course` before extensions.
 3. **A `gpx` root without a namespace.** Decided: accept it, as in section 7.
+4. **Namespace errors** (2026-11-23). Decided: an undeclared or empty namespace prefix does not stop reading; the elements involved have no namespace, so their values are untyped fields. The same as tcxkit's decision 6. Accepted by the maintainer on 2026-11-23.
