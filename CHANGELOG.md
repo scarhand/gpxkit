@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+Fixes from an external review of tcxkit, which shares this reader's input handling.
+
+- A UTF-8 byte order mark split across reads, from an IO that hands over a few bytes at a time, made a valid file invalid; so did a UTF-16 file read a byte at a time. The reader now reads such an IO until it has the bytes asked for, and the DTD check waits for a whole byte order mark. Files and `StringIO` were not affected, and a DTD was never parsed.
+- `bench/read_24h.rb` reproduces the README's timing on a synthetic 24-hour file.
+
 ## 0.1.0
 
 First release: a read-only, streaming reader for GPX 1.1 and 1.0 files, with typed messages and fields, the common fitness extensions, enforced limits, refusal of DTDs, and an `Activity` view in the shape of `FitKit::Activity`. Requires Ruby 3.1 and Nokogiri 1.17.

@@ -86,7 +86,7 @@ end
 
 Same contract as `FitKit::Reader` and `TcxKit::Reader`:
 
-- `Reader.new(source, close_io: false, source_label: nil, limits: Limits::DEFAULT)`. `source` is a path, a `Pathname` or an IO-like object that responds to `read`. A `Pathname` is read as a path even though it responds to `read`.
+- `Reader.new(source, close_io: false, source_label: nil, limits: Limits::DEFAULT)`. `source` is a path, a `Pathname` or an IO-like object that responds to `read`. A `Pathname` is read as a path even though it responds to `read`. An IO that hands over fewer bytes than asked for (a socket, a decompressing stream) is read again until it has them or ends, so it reads the same as a file.
 - `each_message` streams, and returns an Enumerator without a block.
 - Seekable sources can be iterated again; a non-seekable IO can be read once, and a second iteration raises `Error`.
 - Caller-owned IO is closed only with `close_io: true`.
