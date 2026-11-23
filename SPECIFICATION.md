@@ -303,4 +303,4 @@ GpxKit::Error                 base; source, line, column
 1. **Times without a UTC offset.** Decided: `value` nil, `invalid_reason` `:no_utc_offset`, raw text kept. Same as tcxkit.
 2. **Which source wins for a record value** when two extensions state it. Decided: TrackPointExtension v2, then v1, then PowerExtension, then GPXDATA, then bare `power`; GPX 1.0 `speed`/`course` before extensions.
 3. **A `gpx` root without a namespace.** Decided: accept it, as in section 7.
-4. **Namespace errors** (2026-11-23). Decided: an undeclared or empty namespace prefix does not stop reading; the elements involved have no namespace, so their values are untyped fields. The same as tcxkit's decision 6. Pending the maintainer's review in the M4 pull request.
+4. **Namespace errors** (2026-11-23). Decided: an undeclared or empty namespace prefix does not stop reading; the elements involved have no namespace, so their values are untyped fields. The same as tcxkit's decision 6. Accepted by the maintainer on 2026-11-23.
