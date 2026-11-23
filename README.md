@@ -2,7 +2,18 @@
 
 A read-only, streaming Ruby parser for GPX 1.1 and GPX 1.0 (`.gpx`) files.
 
-**Status: milestone M3 of 4.** The reader streams typed messages for every element of a GPX 1.1 or 1.0 document, including the common fitness extensions, and `Activity` gives tracks and points in fitkit's shape. M4 (hardening and the first release) is next. The full API is in [`SPECIFICATION.md`](SPECIFICATION.md).
+**Status: 0.1.0, the first release.** All four milestones of [`SPECIFICATION.md`](SPECIFICATION.md) are done. The API may still change before 1.0.
+
+## Installation
+
+```ruby
+# Gemfile
+gem "gpxkit"
+```
+
+Requires Ruby 3.1 or newer and Nokogiri 1.17 or newer (the only runtime dependency).
+
+## Usage
 
 ```ruby
 require "gpxkit"
@@ -63,7 +74,21 @@ bundle exec rake test
 
 Requires Ruby 3.1 or newer. The only runtime dependency is Nokogiri.
 
+The suite includes seeded fuzz tests. Longer or different rounds:
+
+```sh
+FUZZ_ITERATIONS=50000 FUZZ_SEED=7 bundle exec ruby -Ilib -Itest test/gpxkit/fuzz_test.rb
+```
+
 Test fixtures must be synthetic. Never commit real tracks: they contain locations, times and health data.
+
+## Performance
+
+Reading streams, so memory stays flat however long the file is (the `Activity` view keeps every message, by design). A one-hour activity reads in well under a second. A synthetic 24-hour file with a point every second takes about 9 s of CPU time on a laptop; set `limits: { max_seconds: ... }` for untrusted files.
+
+## Releasing
+
+Releases are published by the maintainer: bump `lib/gpxkit/version.rb`, move the changelog's notes under the new version, then `bundle exec rake release`, which builds the gem, tags the commit and pushes the gem to RubyGems.
 
 ## Licence
 
