@@ -15,6 +15,7 @@ require_relative "gpxkit/field"
 require_relative "gpxkit/message"
 require_relative "gpxkit/message_builder"
 require_relative "gpxkit/reader"
+require_relative "gpxkit/activity"
 
 # A read-only, streaming parser for GPX 1.1 and 1.0 files.
 # See SPECIFICATION.md for the API and what each milestone delivers.
