@@ -84,7 +84,11 @@ Test fixtures must be synthetic. Never commit real tracks: they contain location
 
 ## Performance
 
-Reading streams, so memory stays flat however long the file is (the `Activity` view keeps every message, by design). A one-hour activity reads in well under a second. A synthetic 24-hour file with a point every second takes about 9 s of CPU time on a laptop; set `limits: { max_seconds: ... }` for untrusted files.
+Reading streams, so memory stays flat however long the file is (the `Activity` view keeps every message, by design). A one-hour activity reads in well under a second. A synthetic 24-hour file with a point every second (26 MB) takes about 9 s of CPU time on a laptop; set `limits: { max_seconds: ... }` for untrusted files. To time it yourself:
+
+```sh
+bundle exec ruby -Ilib bench/read_24h.rb
+```
 
 ## Releasing
 

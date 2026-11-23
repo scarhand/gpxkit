@@ -43,4 +43,20 @@ module Documents
   def track_point(children, attributes: %(lat="1.5" lon="2.5"), **options)
     gpx(%(<trk><trkseg><trkpt #{attributes}>#{children}</trkpt></trkseg></trk>), **options)
   end
+
+  # An IO that hands over at most size bytes per read, as a socket or a
+  # decompressing stream may.
+  class ShortReads
+    def initialize(bytes, size)
+      @bytes = bytes.b
+      @size = size
+    end
+
+    def read(_length = nil, buffer = nil)
+      return nil if @bytes.empty?
+
+      chunk = @bytes.slice!(0, @size)
+      buffer ? buffer.replace(chunk) : chunk
+    end
+  end
 end
