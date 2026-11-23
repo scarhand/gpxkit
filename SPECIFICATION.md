@@ -175,47 +175,61 @@ The shared shape across fitkit, tcxkit and gpxkit, applied to what GPX can state
 
 ```ruby
 activity = GpxKit::Activity.read("ride.gpx", limits: { max_seconds: 30 })
+# also Activity.from_file(path) and Activity.from_io(io); options go to Reader.new
 
 activity.sessions   # one per <trk>
 activity.laps       # always empty: GPX has no laps
 activity.records    # every track point, in file order
+activity.waypoints  # waypoints, as records
+activity.routes     # routes, each with its points as records
+activity.metadata   # the 1.1 :metadata message, or in 1.0 the :document message
+activity.document   # the :document message
+activity.version    # "1.1" or "1.0"
+activity.creator    # gpx@creator
 activity.messages
 activity.session
-activity.waypoints  # :waypoint messages
-activity.routes     # routes with their points
-activity.metadata   # 1.1 metadata, or the 1.0 top-level fields
-activity.creator    # gpx@creator
 
-activity.sport            # first track's <type> text, as written; nil if absent
-activity.start_time       # first track's first valid point time
-activity.end_time         # last track's last valid point time
-activity.total_distance   # nil: GPX states no totals
-activity.total_timer_time # nil
+# Summary methods read the first session, as in fitkit:
+activity.sport      # the first track's <type>, as written; nil if absent
+activity.start_time # the first track's first valid point time
+activity.end_time   # the last track's last valid point time
+activity.total_distance, activity.total_timer_time, ... # nil: GPX states no totals
 
 session = activity.session
-session.name
-session.sport          # <type>, as written ("running", "9", ...)
-session.segments       # each with its records
+session.name, session.description, session.number
+session.sport       # <type>, as written ("running", "9", "treadmill_running", ...)
+session.segments    # each with its records
 session.records
 
 record = activity.records.first
-record.timestamp       # Time (UTC)
-record.latitude
-record.longitude
-record.altitude        # ele, m
-record.heart_rate      # hr (TrackPointExtension or GPXDATA)
-record.cadence         # cad or cadence
-record.power           # PowerInWatts or power
-record.temperature     # atemp or temp, °C
-record.speed           # TrackPointExtension v2 speed, or GPX 1.0 speed, m/s
-record.course          # degrees
-record.distance        # GPXDATA distance, m, as stated; nil without it
+record.timestamp    # Time (UTC)
+record.latitude, record.longitude
+record.altitude     # ele, m
+record.name
+record.heart_rate   # bpm
+record.cadence      # rpm
+record.power        # W
+record.temperature  # °C
+record.speed        # m/s
+record.course       # degrees
+record.distance     # GPXDATA distance, m, as stated; nil without it
 record.raw_message
 ```
 
-Method names match `FitKit::Activity` wherever the meaning matches. A method whose value GPX cannot state returns `nil` instead of computing one. When two sources could fill a record value (for example `hr` in both TrackPointExtension and GPXDATA), the order is documented and tested, and both remain on the raw message.
+Method names match `FitKit::Activity` wherever the meaning matches. A method whose value GPX cannot state returns `nil` instead of computing one. The view does not assume the file is an activity: a GPX with only routes or waypoints reads fine, with no sessions or records.
 
-The `Activity` view does not assume the file is an activity: a GPX with only routes or waypoints reads fine, with no sessions or records.
+Record values come from the first valid source, in this order (decision 2); every source stays on the raw message, and an invalid value (a heart rate of 0) falls through to the next source:
+
+| Value | Sources, in order |
+|---|---|
+| `heart_rate` | TrackPointExtension v2 `hr`, v1 `hr`, GPXDATA `hr` |
+| `cadence` | TrackPointExtension v2 `cad`, v1 `cad`, GPXDATA `cadence` |
+| `power` | PowerExtension `PowerInWatts`, then a bare `power` (a decimal, so a `Float`) |
+| `temperature` | TrackPointExtension v2 `atemp`, v1 `atemp`, GPXDATA `temp` |
+| `speed`, `course` | GPX 1.0 `speed`/`course`, then TrackPointExtension v2 |
+| `distance` | GPXDATA `distance` |
+
+Garmin's GPX export of an activity without GPS, such as a treadmill run, has an empty track: no points, and so no heart rate either.
 
 ## 7. Leniency and strictness
 

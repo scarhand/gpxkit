@@ -2,7 +2,20 @@
 
 A read-only, streaming Ruby parser for GPX 1.1 and GPX 1.0 (`.gpx`) files.
 
-**Status: milestone M2 of 4.** The reader streams typed messages for every track point, segment, track, waypoint, route and the metadata of a GPX 1.1 or 1.0 document, including the common fitness extensions. The `Activity` view arrives in M3. The full API is in [`SPECIFICATION.md`](SPECIFICATION.md).
+**Status: milestone M3 of 4.** The reader streams typed messages for every element of a GPX 1.1 or 1.0 document, including the common fitness extensions, and `Activity` gives tracks and points in fitkit's shape. M4 (hardening and the first release) is next. The full API is in [`SPECIFICATION.md`](SPECIFICATION.md).
+
+```ruby
+require "gpxkit"
+
+activity = GpxKit::Activity.read("ride.gpx", limits: { max_seconds: 30 })
+puts "#{activity.sport}: #{activity.start_time} to #{activity.end_time}"
+
+activity.records.each do |record|
+  puts [record.timestamp, record.latitude, record.longitude, record.altitude, record.heart_rate, record.power].inspect
+end
+```
+
+The low-level reader yields one message per element:
 
 ```ruby
 require "gpxkit"
@@ -30,15 +43,7 @@ rescue GpxKit::TruncatedFileError, GpxKit::InvalidFileError, GpxKit::Unsupported
        GpxKit::UnsafeContentError, GpxKit::LimitExceededError => error
 ```
 
-GpxKit is a sister project of [fitkit](https://github.com/scarhand/fitkit) (FIT) and [tcxkit](https://github.com/scarhand/tcxkit) (TCX), and shares their API shape. The activity view is planned for M3:
-
-```ruby
-require "gpxkit"
-
-# Activity view: tracks as sessions, track points as records
-activity = GpxKit::Activity.read("ride.gpx")
-activity.records.each { |record| puts [record.timestamp, record.latitude, record.longitude, record.heart_rate].inspect }
-```
+GpxKit is a sister project of [fitkit](https://github.com/scarhand/fitkit) (FIT) and [tcxkit](https://github.com/scarhand/tcxkit) (TCX), and shares their API shape: the same reader contract and limits, matching error classes, and an `Activity` view with fitkit's method names.
 
 Common fitness extensions (Garmin TrackPointExtension v1/v2, PowerExtension, Cluetrust GPXDATA) are decoded; others are kept as written.
 
